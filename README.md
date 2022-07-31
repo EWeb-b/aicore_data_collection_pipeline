@@ -11,6 +11,6 @@ In this milestone I created the Scraper.py file which contains the Scraper class
 
 I also added the functionality for running the Scraper.py file directly from the command line through the use of 
 ```python
-if __name__ == "___main__"
+if __name__ == "__main__"
 ```
 
