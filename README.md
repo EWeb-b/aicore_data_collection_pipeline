@@ -14,3 +14,15 @@ I also added the functionality for running the Scraper.py file directly from the
 if __name__ == "__main__"
 ```
 
+
+## Milestone 3 - Retrieve Data from Details Page
+In this milestone I wrote the code for creating a directory to hold the movie data I wanted,  accessing each of those data points on the webpage, and saving that data.
+- Created a dictionary called data to store the various text data like who starred in the film, who directed it, etc.
+- Used the built-in selenium methods to access the data points and then stored them in the data dictionary.
+```python
+directors = self.driver.find_elements(By.XPATH, value = '//div[@class="director"]/a')
+data['director'] = [director.text for director in directors]
+```
+- Used context managers to create the folder raw_data if it doesn't exist, and save the text data to a json file for each film.
+- Used a context manager to save the film image to a separate folder called images.
+![plot](readme_images\save_details.png)
