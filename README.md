@@ -25,4 +25,4 @@ data['director'] = [director.text for director in directors]
 ```
 - Used context managers to create the folder raw_data if it doesn't exist, and save the text data to a json file for each film.
 - Used a context manager to save the film image to a separate folder called images.
-![plot](readme_images\save_details.png)
+![plot](readme_images/save_details.png)
