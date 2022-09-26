@@ -31,8 +31,8 @@ class Scraper:
     
 
     def __init__(self):
-        #self.driver = webdriver.Chrome(options=chrome_options)
-        self.driver = webdriver.Chrome()
+        self.driver = webdriver.Chrome(options=chrome_options)
+        #self.driver = webdriver.Chrome()
         
     #TODO: change this to take an argument for vertical position and scroll to there instead.
     def scroll_to_bottom(self):
@@ -223,7 +223,7 @@ class Scraper:
 
         return local, upload
 
-    def does_row_exist(self, engine, unique_key, value, table):
+    def does_row_exist(self, engine, unique_key, value, table) -> bool:
         """Performs a SQL command to check if the given row is already present in the database.
         """
         result = engine.execute(f"""SELECT 1
@@ -234,8 +234,8 @@ class Scraper:
         else:
             return True
 
-    def upload_data_to_RDS(self, data):
-        """Uploads the data in tabular form to the Amazon RDS.
+    def connect_to_RDS(self):
+        """Connects to the RDS database and returns the engine.
         """
         config = configparser.ConfigParser()
         config.read('my_config.ini')
@@ -249,7 +249,13 @@ class Scraper:
         DATABASE = config.get('DB','postgres')
         engine = create_engine(f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{ENDPOINT}:{PORT}/{DATABASE}")
         engine.connect()
+        return engine
 
+
+    def upload_data_to_RDS(self, data):
+        """Uploads the data in tabular form to the Amazon RDS.
+        """
+        engine = self.connect_to_RDS()
         uuid = data['uuid']
         if not self.does_row_exist(engine, 'uuid', uuid, 'film'):
             engine.execute(f'''INSERT INTO film (uuid, friendly_id, title, metascore, release_date, rating, runtime)
@@ -287,7 +293,7 @@ if __name__ == "__main__":
     film_links = scraper.get_film_links()
     scraper.create_folder('raw_data')
 
-    for film in film_links[:5]:
+    for film in film_links[:100]:
         scraper.driver.get(film)
         scraper.decline_cookies(1)
 
@@ -310,10 +316,11 @@ if __name__ == "__main__":
         imgs.append(data['summary_img'])
 
         if choices[0] == "y": # Save the data locally.
-            scraper.create_folder('raw_data/{}'.format(data['friend_id']))
-            scraper.create_folder('raw_data/{}/images'.format(data['friend_id']))
-            scraper.save_raw_data('raw_data', data, data['friend_id'])
-            scraper.save_images(imgs, data['friend_id'])
+            if not os.path.exists('raw_data/{}'.format(data['friend_id'])):
+                scraper.create_folder('raw_data/{}'.format(data['friend_id']))
+                scraper.create_folder('raw_data/{}/images'.format(data['friend_id']))
+                scraper.save_raw_data('raw_data', data, data['friend_id'])
+                scraper.save_images(imgs, data['friend_id'])
 
         if choices[1] == "y": # Upload the data to RDS.
             scraper.upload_data_to_RDS(data)
