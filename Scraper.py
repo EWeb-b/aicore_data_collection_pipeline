@@ -8,57 +8,62 @@ import re
 import requests
 import time
 import uuid
-from msilib.schema import Directory
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
-import sqlalchemy
 from sqlalchemy import create_engine
 from typing import List
+from webdriver_manager.chrome import ChromeDriverManager
 
-
-
-URL = "https://www.metacritic.com/browse/movies/score/metascore/year/filtered"
-
-chrome_options = Options()
-chrome_options.add_argument("--headless")
 
 class Scraper:
-    
 
-    def __init__(self):
-        self.driver = webdriver.Chrome(options=chrome_options)
-        #self.driver = webdriver.Chrome()
+    def __init__(self, headless=False) -> None:
+        self.url = "https://www.metacritic.com/browse/movies/score/metascore/year/filtered"
+        s = Service(ChromeDriverManager().install())
+
+        options = webdriver.ChromeOptions()
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--window-size=1024,768")
         
-    #TODO: change this to take an argument for vertical position and scroll to there instead.
-    def scroll_to_bottom(self):
-        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        if headless:
+            options.add_argument("--headless")
+            # self.driver = webdriver.Remote(
+            #     "http://127.0.0.1:4444/wd/hub", options=options)
+            self.driver = webdriver.Chrome(service=s, options=options)
+        else:
+            self.driver = webdriver.Chrome(service=s)
+        self.driver.get(self.url)
 
     def decline_cookies(self, delay):
         """Rejects the cookie window if it is present."""
-        try: # if the reject cookies button is there then click it
-            reject_cookies_btn = WebDriverWait(self.driver, delay).until(EC.presence_of_element_located((By.XPATH, '//*[@id="onetrust-reject-all-handler"]')))
+        try:  # if the reject cookies button is there then click it
+            reject_cookies_btn = WebDriverWait(self.driver, delay).until(
+                EC.presence_of_element_located((By.XPATH, '//*[@id="onetrust-reject-all-handler"]')))
             reject_cookies_btn.click()
 
-        except NoSuchElementException: # open the cookies settings, then click reject
-            cookies_settings_btn = self.driver.find_element(by=By.XPATH, value='//*[@id="ot-sdk-btn"]')
+        except NoSuchElementException:  # open the cookies settings, then click reject
+            cookies_settings_btn = self.driver.find_element(
+                by=By.XPATH, value='//*[@id="ot-sdk-btn"]')
             cookies_settings_btn.click()
-            reject_cookies_btn = WebDriverWait(self.driver, delay).until(EC.presence_of_element_located((By.XPATH, '//*[@id="onetrust-pc-sdk"]/div[3]/div[1]/button[1]')))
+            reject_cookies_btn = WebDriverWait(self.driver, delay).until(EC.presence_of_element_located(
+                (By.XPATH, '//*[@id="onetrust-pc-sdk"]/div[3]/div[1]/button[1]')))
             reject_cookies_btn.click()
 
         except TimeoutException:
-            print ("Loading cookies took too much time!")
+            print("Loading cookies took too much time!")
 
         except:
             pass
 
     def return_to_film_list(self):
         """Moves the webdriver to the index page of films."""
-        self.driver.get("https://www.metacritic.com/browse/movies/score/metascore/year/filtered")
+        self.driver.get(
+            "https://www.metacritic.com/browse/movies/score/metascore/year/filtered")
 
     def get_film_links(self) -> List:
         """Collects all the film links on the current page.
@@ -66,13 +71,14 @@ class Scraper:
         Returns:
             links = A collection of film URLs (List).
         """
-        films = self.driver.find_elements(By.XPATH, '//div[@class="title_bump"]//a[@class="title"]')
+        films = self.driver.find_elements(
+            By.XPATH, '//div[@class="title_bump"]//a[@class="title"]')
         links = [film.get_attribute('href') for film in films]
         return links
 
     def get_uuid(self) -> str:
         """Creates a unique identifier.
-        
+
         Returns:
             A unique identifier (string).
         """
@@ -80,14 +86,14 @@ class Scraper:
 
     def return_element_if_exists(self, xpath):
         try:
-            ele = self.driver.find_element(By.XPATH, value = xpath)
+            ele = self.driver.find_element(By.XPATH, value=xpath)
         except NoSuchElementException:
             return None
         return ele
 
     def return_elements_if_exist(self, xpath):
         try:
-            eles = self.driver.find_elements(By.XPATH, value = xpath)
+            eles = self.driver.find_elements(By.XPATH, value=xpath)
             ele_list = [ele.text for ele in eles]
         except NoSuchElementException:
             return None
@@ -95,7 +101,7 @@ class Scraper:
 
     def get_friend_id(self) -> str:
         """Creates and returns a 'friendly id' by using the last part of the URL.
-        
+
         Returns:
             The piece of the current page's url which comes after the last / character (string).
         """
@@ -160,7 +166,7 @@ class Scraper:
         ret = result.get_attribute("src") if result else result
         return ret
 
-    def save_raw_data(self, dir: Directory, data: dict, friend_id: str):
+    def save_raw_data(self, dir, data: dict, friend_id: str):
         """Saves the film data as a json file.
 
         Args:
@@ -169,18 +175,19 @@ class Scraper:
         """
 
         filename = ("{}/{}/{}_data.json").format(dir, friend_id, friend_id)
-        data['release_date'] = str(data['release_date']) # Convert from the Date object so that it can be saved as JSON.
+        # Convert from the Date object so that it can be saved as JSON.
+        data['release_date'] = str(data['release_date'])
         try:
-            with open(filename, "w", encoding = "utf-8") as file:
-                #file.write(json.dumps(data))
-                json.dump(data, file, ensure_ascii = False)
+            with open(filename, "w", encoding="utf-8") as file:
+                # file.write(json.dumps(data))
+                json.dump(data, file, ensure_ascii=False)
             self.upload_file_s3(filename, "{}.json".format(friend_id))
         except FileNotFoundError:
             print("File not found.")
 
     def create_folder(self, dir: str):
         """Creates a directory in the current location.
-        
+
         Args:
             dir: The name of the directory as a string.
         """
@@ -188,8 +195,8 @@ class Scraper:
         if not os.path.isdir(dir):
             os.makedirs(dir)
         else:
-            print("Directory already existed.")
-           
+            print("{} already existed.".format(dir))
+
     def save_images(self, images: list, friend_id: str):
         """Saves the images in the images directory.
 
@@ -201,16 +208,18 @@ class Scraper:
             counter = 0
             for image in images:
                 if image is not None:
-                    filename = "raw_data/{}/images/{}_{}.jpg".format(friend_id, friend_id, str(counter))
+                    filename = "raw_data/{}/images/{}_{}.jpg".format(
+                        friend_id, friend_id, str(counter))
                     img_data = requests.get(image).content
                     with open(filename, 'wb') as handler:
                         handler.write(img_data)
-                    self.upload_file_s3(filename, "{}_{}.jpg".format(friend_id, counter))
+                    self.upload_file_s3(
+                        filename, "{}_{}.jpg".format(friend_id, counter))
                     counter += 1
 
     def upload_file_s3(self, filename: str, final_name: str):
         """Uploads the raw_data directory to the AWS s3 bucket.
-        
+
         """
         s3_client = boto3.client('s3')
         s3_client.upload_file(filename, 'aicore-datapipe-bucket', final_name)
@@ -229,7 +238,7 @@ class Scraper:
         result = engine.execute(f"""SELECT 1
                                     FROM {table}
                                     WHERE {unique_key} = '{value}';""").fetchall()
-        if result == []: 
+        if result == []:
             return False
         else:
             return True
@@ -240,17 +249,17 @@ class Scraper:
         config = configparser.ConfigParser()
         config.read('my_config.ini')
 
-        DATABASE_TYPE = config.get('DB','database_type')
-        DBAPI = config.get('DB','dbapi')
-        ENDPOINT = config.get('DB','endpoint')
-        USER = config.get('DB','user')
-        PASSWORD = config.get('DB','password')
-        PORT = config.get('DB','port')
-        DATABASE = config.get('DB','postgres')
-        engine = create_engine(f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{ENDPOINT}:{PORT}/{DATABASE}")
+        DATABASE_TYPE = config.get('DB', 'database_type')
+        DBAPI = config.get('DB', 'dbapi')
+        ENDPOINT = config.get('DB', 'endpoint')
+        USER = config.get('DB', 'user')
+        PASSWORD = config.get('DB', 'password')
+        PORT = config.get('DB', 'port')
+        DATABASE = config.get('DB', 'database')
+        engine = create_engine(
+            f"{DATABASE_TYPE}+{DBAPI}://{USER}:{PASSWORD}@{ENDPOINT}:{PORT}/{DATABASE}")
         engine.connect()
         return engine
-
 
     def upload_data_to_RDS(self, data):
         """Uploads the data in tabular form to the Amazon RDS.
@@ -264,41 +273,48 @@ class Scraper:
 
         for actor in data['starring']:
             if not self.does_row_exist(engine, 'actor_name', actor, 'actor'):
-                engine.execute(f'''INSERT INTO actor (actor_name) VALUES ('{actor}');''')
+                engine.execute(
+                    f'''INSERT INTO actor (actor_name) VALUES ('{actor}');''')
 
-            actor_id = engine.execute(f"""SELECT id FROM actor WHERE actor_name = '{actor}';""").first()[0]
-            engine.execute(f'''INSERT INTO actor_link (film_id, actor_id) VALUES ('{uuid}', '{actor_id}');''')
+            actor_id = engine.execute(
+                f"""SELECT id FROM actor WHERE actor_name = '{actor}';""").first()[0]
+            engine.execute(
+                f'''INSERT INTO actor_link (film_id, actor_id) VALUES ('{uuid}', '{actor_id}');''')
 
         for director in data['director']:
             if not self.does_row_exist(engine, 'director_name', director, 'director'):
-                engine.execute(f'''INSERT INTO director (director_name) VALUES ('{director}');''')
+                engine.execute(
+                    f'''INSERT INTO director (director_name) VALUES ('{director}');''')
 
-            director_id = engine.execute(f"""SELECT id FROM director WHERE director_name = '{director}';""").first()[0]
-            engine.execute(f'''INSERT INTO director_link (film_id, director_id) VALUES ('{uuid}', '{director_id}');''')
+            director_id = engine.execute(
+                f"""SELECT id FROM director WHERE director_name = '{director}';""").first()[0]
+            engine.execute(
+                f'''INSERT INTO director_link (film_id, director_id) VALUES ('{uuid}', '{director_id}');''')
 
         for genre in data['genres']:
             if not self.does_row_exist(engine, 'genre_name', genre, 'genre'):
-                engine.execute(f'''INSERT INTO genre (genre_name) VALUES ('{genre}');''')
+                engine.execute(
+                    f'''INSERT INTO genre (genre_name) VALUES ('{genre}');''')
 
-            genre_id = engine.execute(f"""SELECT id FROM genre WHERE genre_name = '{genre}';""").first()[0]
-            engine.execute(f'''INSERT INTO genre_link (film_id, genre_id) VALUES ('{uuid}', '{genre_id}');''')
+            genre_id = engine.execute(
+                f"""SELECT id FROM genre WHERE genre_name = '{genre}';""").first()[0]
+            engine.execute(
+                f'''INSERT INTO genre_link (film_id, genre_id) VALUES ('{uuid}', '{genre_id}');''')
 
 
 if __name__ == "__main__":
 
-    scraper = Scraper()
+    scraper = Scraper(headless=True)
     choices = scraper.get_local_upload_choices()
-    scraper.driver.get(URL)
     scraper.decline_cookies(10)
     film_links = scraper.get_film_links()
-    scraper.create_folder('raw_data')
 
     for film in film_links[:100]:
         scraper.driver.get(film)
         scraper.decline_cookies(1)
 
-        data = {'uuid':[],'friend_id':[],'title':[],'metascore':[],'release_date':[],'starring':[],
-                'director':[],'genres':[],'rating':[],'runtime':[],'summary_img':[]}
+        data = {'uuid': [], 'friend_id': [], 'title': [], 'metascore': [], 'release_date': [], 'starring': [],
+                'director': [], 'genres': [], 'rating': [], 'runtime': [], 'summary_img': []}
 
         data['uuid'] = scraper.get_uuid()
         data['friend_id'] = scraper.get_friend_id()
@@ -315,25 +331,23 @@ if __name__ == "__main__":
         imgs = []
         imgs.append(data['summary_img'])
 
-        if choices[0] == "y": # Save the data locally.
-            if not os.path.exists('raw_data/{}'.format(data['friend_id'])):
-                scraper.create_folder('raw_data/{}'.format(data['friend_id']))
-                scraper.create_folder('raw_data/{}/images'.format(data['friend_id']))
-                scraper.save_raw_data('raw_data', data, data['friend_id'])
-                scraper.save_images(imgs, data['friend_id'])
+        print(data)
 
-        if choices[1] == "y": # Upload the data to RDS.
+        if choices[0] == "y":  # Save the data locally.
+            print("Saving data locally.")
+            scraper.create_folder('raw_data')
+            scraper.create_folder('raw_data/{}'.format(data['friend_id']))
+            scraper.create_folder(
+                'raw_data/{}/images'.format(data['friend_id']))
+            scraper.save_raw_data('raw_data', data, data['friend_id'])
+            scraper.save_images(imgs, data['friend_id'])
+
+        if choices[1] == "y":  # Upload the data to RDS.
+            print("Uploading data to RDS.")
             scraper.upload_data_to_RDS(data)
 
+        print("{} done.".format(data['friend_id']))
         time.sleep(2)
         scraper.return_to_film_list()
 
     scraper.driver.quit()
-
-        
-
-
-
-
-
-    
