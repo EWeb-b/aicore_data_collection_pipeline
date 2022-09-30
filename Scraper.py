@@ -125,8 +125,7 @@ class Scraper:
         """Finds and returns the current film's release date as a string."""
         xpath = '//span[@class="release_date"]/span[2]'
         result = self.return_element_if_exists(xpath)
-        release_date = result.text if result else result
-        release_date = datetime.strptime(release_date, '%B %d, %Y').date()
+        release_date = datetime.strptime(result.text, '%B %d, %Y').date() if result else result
         return release_date
 
     def get_actors(self) -> List:
@@ -155,8 +154,7 @@ class Scraper:
         """Finds and returns the current film's runtime as a string."""
         xpath = '//div[@class="runtime"]/span[2]'
         result = self.return_element_if_exists(xpath)
-        runtime = result.text if result else result
-        runtime = int(re.sub("[^0-9]", "", runtime))
+        runtime = int(re.sub("[^0-9]", "", result.text)) if result else result
         return runtime
 
     def get_summary_img(self) -> str:
