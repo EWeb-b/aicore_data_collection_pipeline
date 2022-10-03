@@ -15,7 +15,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from sqlalchemy import create_engine
-from typing import List
+from sqlalchemy import Engine
+from typing import Any, List
 from webdriver_manager.chrome import ChromeDriverManager
 
 
@@ -230,12 +231,21 @@ class Scraper:
 
         return local, upload
 
-    def does_row_exist(self, engine, unique_key, value, table) -> bool:
+    def does_row_exist(self, engine: Engine, column: str, value: Any, table: str) -> bool:
         """Performs a SQL command to check if the given row is already present in the database.
+
+        Args:
+            engine: The connection to the remote database.
+            unique_key: The column of the table being checked.
+            value: We check to see if this value is in the table.
+            table: The table in the database being considered.
+
+        Returns:
+            Boolean: True if the row is in the database, False if not.
         """
         result = engine.execute(f"""SELECT 1
                                     FROM {table}
-                                    WHERE {unique_key} = '{value}';""").fetchall()
+                                    WHERE {column} = '{value}';""").fetchall()
         if result == []:
             return False
         else:
@@ -243,6 +253,9 @@ class Scraper:
 
     def connect_to_RDS(self):
         """Connects to the RDS database and returns the engine.
+
+        Returns:
+            engine: An Engine object which has connected to the database.
         """
         config = configparser.ConfigParser()
         config.read('my_config.ini')
@@ -259,8 +272,11 @@ class Scraper:
         engine.connect()
         return engine
 
-    def upload_data_to_RDS(self, data):
+    def upload_data_to_RDS(self, data) -> None:
         """Uploads the data in tabular form to the Amazon RDS.
+
+        Args:
+            data: The film data which will be saved the RDS, in the form of a dict.
         """
         engine = self.connect_to_RDS()
         uuid = data['uuid']
