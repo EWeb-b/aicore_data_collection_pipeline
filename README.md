@@ -58,3 +58,7 @@ I containerised the scraper using docker and pushed it to Dockerhub. Then, I was
 - Succesfully ran the scraper from the Docker image on the EC2 instance.
 
 
+## Milestone 8 - Monitoring and Alerting
+Prometheus was set up to monitor the data scraper and also runs on the EC2 instance. Grafana was configured to receive the monitoring data from Prometheus.
+
+
