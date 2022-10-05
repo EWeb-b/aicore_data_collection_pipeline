@@ -56,9 +56,38 @@ I containerised the scraper using docker and pushed it to Dockerhub. Then, I was
 - Pushed the Docker image to Dockerhub using Docker push.
 - Created an EC2 instance, connected to it in-terminal using SSH and pulled the Docker image.
 - Succesfully ran the scraper from the Docker image on the EC2 instance.
+- Also edited the scraper so that it automatically goes to the next page of films and continues scraping.
+- Scraper was changed so that it also automatically quits when there are no new pages of films to scrape.
 
 
 ## Milestone 8 - Monitoring and Alerting
 Prometheus was set up to monitor the data scraper and also runs on the EC2 instance. Grafana was configured to receive the monitoring data from Prometheus.
+- Edited the /root/prometheus.yml file in the EC2 instance to target the instance's 9090 port.
+```
+  - job_name: 'prometheus'
+    # Override the global default and scrape targets from the job every 5 seco$
+    scrape_interval: '5s'
+    static_configs:
+      - targets: ['localhost:9090', '18.132.222.186:9090']
+```
+- Obtained the docker address by running `ifconfig -a`
+- Also edited /root/prometheus.yml in the EC2 instance to track docker.
+```
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['172.17.0.1:9323']
+```
+
+- Finally, created /etc/docker/daemon.json on the EC2 instance and wrote the following.
+```
+{
+    "metrics-addr" : "172.17.0.1:9323",
+    "experimental": true,
+    "features": {
+    "buildkit": true
+    }
+}
+```
+- This, along with the prometheus.yml file, allows Prometheus to track the Docker container which will run the scraper.
 
 
