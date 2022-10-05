@@ -1,5 +1,3 @@
-from lib2to3.pgen2 import driver
-from xxlimited import Str
 import boto3
 import configparser
 from datetime import datetime
@@ -18,6 +16,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from sqlalchemy import create_engine
 from sqlalchemy.engine.base import Engine
+import sys
 from typing import Any
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -173,7 +172,8 @@ class Scraper:
         xpath = '//div[@class="runtime"]/span[2]'
         result = self.return_element_if_exists(xpath)
         try:
-            runtime = int(re.sub("[^0-9]", "", result.text)) if result else result
+            runtime = int(re.sub("[^0-9]", "", result.text)
+                          ) if result else result
         except:
             runtime = None
         return runtime
@@ -243,13 +243,24 @@ class Scraper:
         s3_client = boto3.client('s3')
         s3_client.upload_file(filename, 'aicore-datapipe-bucket', final_name)
 
-    def get_local_upload_choices(self) -> tuple:
-        """Gets the user's choices to save data to machine locally, upload directly to RDS or both.
+    def get_local_upload_choices(self, args: list) -> tuple:
+        """Gets the user's choices to save data to machine locally, upload directly to RDS or both. From command line args.
         """
-        local = input("Save data locally? y/n ")
-        upload = input("Upload data to RDS? y/n ")
+        correct_usage_msg = """Argument error. Correct usage: `python3 scraper.py <local_choice> <upload_choice>` where <local_choice> and
+                                <upload_choice> are y or n and refer to if you want to save the scraped data locally and/or upload it to the AWS RDS."""
 
-        return local, upload
+        try:
+            local, upload = sys.argv[1], sys.argv[2]
+            if len(sys.argv) < 3:
+                if local in ["y", "n"] and upload in ["y", "n"]:
+                    return local, upload
+                else:
+                    raise ValueError(' '.join(correct_usage_msg.split()))
+            else:
+                raise ValueError(' '.join(correct_usage_msg.split()))
+        except IndexError as e:
+            print(e, ' '.join(correct_usage_msg.split()))
+            sys.exit(1)
 
     def does_row_exist(self, engine: Engine, column: str, value: Any, table: str) -> bool:
         """Performs a SQL command to check if the given row is already present in the database.
@@ -389,7 +400,7 @@ if __name__ == "__main__":
 
     scraper = Scraper(headless=True)
     # Gets the user's choices on uploading/saving data locally.
-    choices = scraper.get_local_upload_choices()
+    choices = scraper.get_local_upload_choices(sys.argv)
     scraper.decline_cookies(10)
 
     while True:
