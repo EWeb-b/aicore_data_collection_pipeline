@@ -9,7 +9,7 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key
     && unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/ 
 
 COPY requirements.txt .
-COPY Scraper.py .
+COPY scraper.py .
 COPY testing.py .
 
 RUN pip install -r requirements.txt
