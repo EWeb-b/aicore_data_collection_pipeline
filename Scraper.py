@@ -1,3 +1,4 @@
+from lib2to3.pgen2 import driver
 from xxlimited import Str
 import boto3
 import configparser
@@ -9,28 +10,29 @@ import requests
 import time
 import uuid
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from sqlalchemy import create_engine
-from sqlalchemy import Engine
-from typing import Any, List
+from sqlalchemy.engine.base import Engine
+from typing import Any
 from webdriver_manager.chrome import ChromeDriverManager
 
 
 class Scraper:
 
     def __init__(self, headless=False) -> None:
-        self.url = "https://www.metacritic.com/browse/movies/score/metascore/year/filtered"
+        self.url = "https://www.metacritic.com/browse/movies/score/metascore/all/filtered?page=151"
         s = Service(ChromeDriverManager().install())
 
         options = webdriver.ChromeOptions()
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--no-sandbox")
         options.add_argument("--window-size=1024,768")
-        
+
         if headless:
             options.add_argument("--headless")
             # self.driver = webdriver.Remote(
@@ -66,7 +68,16 @@ class Scraper:
         self.driver.get(
             "https://www.metacritic.com/browse/movies/score/metascore/year/filtered")
 
-    def get_film_links(self) -> List:
+    def click_next_page(self):
+        """Clicks the next page of the film list."""
+        next_page_btn = self.driver.find_element(
+            By.XPATH, '//span[@class="flipper next"]//a[@class="action"]')
+        print(next_page_btn)
+        next_page_link = next_page_btn.get_attribute('href')
+        print(next_page_link)
+        self.driver.get(next_page_link)
+
+    def get_film_links(self) -> list:
         """Collects all the film links on the current page.
 
         Returns:
@@ -85,14 +96,14 @@ class Scraper:
         """
         return str(uuid.uuid4())
 
-    def return_element_if_exists(self, xpath):
+    def return_element_if_exists(self, xpath: str) -> (WebElement | None):
         try:
             ele = self.driver.find_element(By.XPATH, value=xpath)
         except NoSuchElementException:
             return None
         return ele
 
-    def return_elements_if_exist(self, xpath):
+    def return_elements_if_exist(self, xpath: str) -> (list | None):
         try:
             eles = self.driver.find_elements(By.XPATH, value=xpath)
             ele_list = [ele.text for ele in eles]
@@ -108,57 +119,66 @@ class Scraper:
         """
         return self.driver.current_url.split("/")[-1]
 
-    def get_film_title(self) -> str:
+    def get_film_title(self) -> (str | None):
         """Finds and returns the current film's title as a string."""
         xpath = '//div[@class="product_page_title oswald"]/h1'
         result = self.return_element_if_exists(xpath)
         ret = result.text if result else result
         return ret
 
-    def get_metascore(self) -> str:
+    def get_metascore(self) -> (str | None):
         """Finds and returns the current film's metascore as a string."""
         xpath = '//a[@class="metascore_anchor"]/span'
         result = self.return_element_if_exists(xpath)
         ret = int(result.text) if result else result
         return ret
 
-    def get_release_date(self) -> str:
+    def get_release_date(self) -> (str | None):
         """Finds and returns the current film's release date as a string."""
         xpath = '//span[@class="release_date"]/span[2]'
         result = self.return_element_if_exists(xpath)
-        release_date = datetime.strptime(result.text, '%B %d, %Y').date() if result else result
+        try:
+            release_date = datetime.strptime(
+                result.text, '%B %d, %Y').date() if result else result
+        except ValueError:
+            release_date = None
+        except:
+            release_date = None
         return release_date
 
-    def get_actors(self) -> List:
+    def get_actors(self) -> (list | None):
         """Finds and returns the current film's starring actors as a List."""
         xpath = '//div[@class="summary_cast details_section"]/span[2]/a'
         return self.return_elements_if_exist(xpath)
 
-    def get_directors(self) -> List:
+    def get_directors(self) -> (list | None):
         """Finds and returns the current film's directors as a List."""
         xpath = '//div[@class="director"]/a'
         return self.return_elements_if_exist(xpath)
 
-    def get_genres(self) -> List:
+    def get_genres(self) -> (list | None):
         """Finds and returns the current film's genres as a List"""
         xpath = '//div[@class="genres"]/span[2]/span'
         return self.return_elements_if_exist(xpath)
 
-    def get_rating(self) -> str:
+    def get_rating(self) -> (str | None):
         """Finds and returns the current film's ae rating as a string."""
         xpath = '//div[@class="rating"]/span[2]'
         result = self.return_element_if_exists(xpath)
         ret = result.text if result else result
         return ret
 
-    def get_runtime(self) -> str:
+    def get_runtime(self) -> (str | None):
         """Finds and returns the current film's runtime as a string."""
         xpath = '//div[@class="runtime"]/span[2]'
         result = self.return_element_if_exists(xpath)
-        runtime = int(re.sub("[^0-9]", "", result.text)) if result else result
+        try:
+            runtime = int(re.sub("[^0-9]", "", result.text)) if result else result
+        except:
+            runtime = None
         return runtime
 
-    def get_summary_img(self) -> str:
+    def get_summary_img(self) -> (str | None):
         """Finds and returns the current film's summary image source as a string."""
         xpath = '//img[@class="summary_img"]'
         result = self.return_element_if_exists(xpath)
@@ -223,7 +243,7 @@ class Scraper:
         s3_client = boto3.client('s3')
         s3_client.upload_file(filename, 'aicore-datapipe-bucket', final_name)
 
-    def get_local_upload_choices(self):
+    def get_local_upload_choices(self) -> tuple:
         """Gets the user's choices to save data to machine locally, upload directly to RDS or both.
         """
         local = input("Save data locally? y/n ")
@@ -251,7 +271,7 @@ class Scraper:
         else:
             return True
 
-    def connect_to_RDS(self):
+    def connect_to_RDS(self) -> Engine:
         """Connects to the RDS database and returns the engine.
 
         Returns:
@@ -272,7 +292,7 @@ class Scraper:
         engine.connect()
         return engine
 
-    def upload_data_to_RDS(self, data) -> None:
+    def upload_data_to_RDS(self, data: dict) -> None:
         """Uploads the data in tabular form to the Amazon RDS.
 
         Args:
@@ -315,18 +335,13 @@ class Scraper:
             engine.execute(
                 f'''INSERT INTO genre_link (film_id, genre_id) VALUES ('{uuid}', '{genre_id}');''')
 
+    def scrape_single_film_data(self) -> tuple[dict, list]:
+        """Scrapes all of the data of a singular film and returns the data. Assumes scraper is already on the film's page.
 
-if __name__ == "__main__":
-
-    scraper = Scraper(headless=True)
-    choices = scraper.get_local_upload_choices()
-    scraper.decline_cookies(10)
-    film_links = scraper.get_film_links()
-
-    for film in film_links[:100]:
-        scraper.driver.get(film)
-        scraper.decline_cookies(1)
-
+        Returns:
+            data: A dictionary of the film's data.
+            imgs: A list of the image urls. 
+        """
         data = {'uuid': [], 'friend_id': [], 'title': [], 'metascore': [], 'release_date': [], 'starring': [],
                 'director': [], 'genres': [], 'rating': [], 'runtime': [], 'summary_img': []}
 
@@ -345,23 +360,65 @@ if __name__ == "__main__":
         imgs = []
         imgs.append(data['summary_img'])
 
-        print(data)
+        return data, imgs
 
+    def manage_saving_data(self, data: dict, imgs: list, friend_id: str, choices: tuple) -> None:
+        """Performs the high-level operations for saving the film data by calling other functions depending on user choices.
+
+        Args:
+            data: The dictionary of film data to be saved.
+            imgs: A list of image urls.
+            friend_id: A string similar to the film's title. Serves as a unique identifier.
+            choices: A tuple of strings, inputted by the user, to indicate their preferences on saving the film data.
+        """
         if choices[0] == "y":  # Save the data locally.
             print("Saving data locally.")
             scraper.create_folder('raw_data')
-            scraper.create_folder('raw_data/{}'.format(data['friend_id']))
+            scraper.create_folder('raw_data/{}'.format(friend_id))
             scraper.create_folder(
-                'raw_data/{}/images'.format(data['friend_id']))
-            scraper.save_raw_data('raw_data', data, data['friend_id'])
-            scraper.save_images(imgs, data['friend_id'])
+                'raw_data/{}/images'.format(friend_id))
+            scraper.save_raw_data('raw_data', data, friend_id)
+            scraper.save_images(imgs, friend_id)
 
         if choices[1] == "y":  # Upload the data to RDS.
             print("Uploading data to RDS.")
             scraper.upload_data_to_RDS(data)
 
-        print("{} done.".format(data['friend_id']))
-        time.sleep(2)
-        scraper.return_to_film_list()
+
+if __name__ == "__main__":
+
+    scraper = Scraper(headless=True)
+    # Gets the user's choices on uploading/saving data locally.
+    choices = scraper.get_local_upload_choices()
+    scraper.decline_cookies(10)
+
+    while True:
+        scraper.decline_cookies(1)
+        film_links = scraper.get_film_links()
+        current_page = scraper.driver.current_url
+
+        for film in film_links:
+            # Navigate to film's page.
+            scraper.driver.get(film)
+            scraper.decline_cookies(1)
+
+            # Scrape this film's data.
+            data, imgs = scraper.scrape_single_film_data()
+
+            # Save the data locally, upload to RDS, do both, or do neither.
+            scraper.manage_saving_data(data, imgs, data['friend_id'], choices)
+
+            print(data)
+            print("{} done.".format(data['friend_id']))
+            time.sleep(1)
+
+            # Return to the page we were on.
+            scraper.driver.get(current_page)
+
+        # If a next page exists, click it. Otherwise we are done and program can exit.
+        if scraper.return_element_if_exists('//span[@class="flipper next"]//a[@class="action"]') is None:
+            break
+        else:
+            scraper.click_next_page()
 
     scraper.driver.quit()
