@@ -61,35 +61,35 @@ def upload_data_to_RDS(data: dict) -> None:
                             VALUES ('{uuid}', '{data['friend_id']}', '{data['title']}', '{data['metascore']}',
                             '{data['release_date']}', '{data['rating']}', '{data['runtime']}');''')
 
-    for actor in data['starring']:
-        if not does_row_exist(engine, 'actor_name', actor, 'actor'):
+        for actor in data['starring']:
+            if not does_row_exist(engine, 'actor_name', actor, 'actor'):
+                engine.execute(
+                    f'''INSERT INTO actor (actor_name) VALUES ('{actor}');''')
+
+            actor_id = engine.execute(
+                f"""SELECT id FROM actor WHERE actor_name = '{actor}';""").first()[0]
             engine.execute(
-                f'''INSERT INTO actor (actor_name) VALUES ('{actor}');''')
+                f'''INSERT INTO actor_link (film_id, actor_id) VALUES ('{uuid}', '{actor_id}');''')
 
-        actor_id = engine.execute(
-            f"""SELECT id FROM actor WHERE actor_name = '{actor}';""").first()[0]
-        engine.execute(
-            f'''INSERT INTO actor_link (film_id, actor_id) VALUES ('{uuid}', '{actor_id}');''')
+        for director in data['director']:
+            if not does_row_exist(engine, 'director_name', director, 'director'):
+                engine.execute(
+                    f'''INSERT INTO director (director_name) VALUES ('{director}');''')
 
-    for director in data['director']:
-        if not does_row_exist(engine, 'director_name', director, 'director'):
+            director_id = engine.execute(
+                f"""SELECT id FROM director WHERE director_name = '{director}';""").first()[0]
             engine.execute(
-                f'''INSERT INTO director (director_name) VALUES ('{director}');''')
+                f'''INSERT INTO director_link (film_id, director_id) VALUES ('{uuid}', '{director_id}');''')
 
-        director_id = engine.execute(
-            f"""SELECT id FROM director WHERE director_name = '{director}';""").first()[0]
-        engine.execute(
-            f'''INSERT INTO director_link (film_id, director_id) VALUES ('{uuid}', '{director_id}');''')
+        for genre in data['genres']:
+            if not does_row_exist(engine, 'genre_name', genre, 'genre'):
+                engine.execute(
+                    f'''INSERT INTO genre (genre_name) VALUES ('{genre}');''')
 
-    for genre in data['genres']:
-        if not does_row_exist(engine, 'genre_name', genre, 'genre'):
+            genre_id = engine.execute(
+                f"""SELECT id FROM genre WHERE genre_name = '{genre}';""").first()[0]
             engine.execute(
-                f'''INSERT INTO genre (genre_name) VALUES ('{genre}');''')
-
-        genre_id = engine.execute(
-            f"""SELECT id FROM genre WHERE genre_name = '{genre}';""").first()[0]
-        engine.execute(
-            f'''INSERT INTO genre_link (film_id, genre_id) VALUES ('{uuid}', '{genre_id}');''')
+                f'''INSERT INTO genre_link (film_id, genre_id) VALUES ('{uuid}', '{genre_id}');''')
 
 def save_raw_data(dir, data: dict, friend_id: str):
     """Saves the film data as a json file.
