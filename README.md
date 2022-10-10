@@ -91,3 +91,9 @@ Prometheus was set up to monitor the data scraper and also runs on the EC2 insta
 - This, along with the prometheus.yml file, allows Prometheus to track the Docker container which will run the scraper.
 
 
+## Milestone 9 - CI/CD pipeline for the Docker Image
+Added functionality to automatically build the Docker image and push it to Docker Hub when the Git repo is pushed.
+- Set up Github Secrets to store my Docker Hub credentials.
+- Created the GitHub action to automatically build the Docker Image and push it to Docker Hub when the main branch is pushed.
+- Decided to omit the cronjobs as my scraper is better suited to being run once and scraping all of the film data in one go. If there was fresh data added consistently then I would restart the scraper every day.
+
