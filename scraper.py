@@ -3,7 +3,7 @@ import data_saving
 import film_details
 
 # Other imports.
-import time
+from psycopg2.extensions import connection
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
@@ -11,6 +11,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import sys
+import time
 from typing import Any
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -18,7 +19,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 class Scraper:
 
     def __init__(self, headless=False) -> None:
-        self.url = "https://www.metacritic.com/browse/movies/score/metascore/all/filtered?page=151"
+        self.url = "https://www.metacritic.com/browse/movies/score/metascore/all/filtered?page=0"
         s = Service(ChromeDriverManager().install())
 
         options = webdriver.ChromeOptions()
@@ -104,7 +105,6 @@ class Scraper:
         except IndexError as e:
             print(e, ' '.join(correct_usage_msg.split()))
             sys.exit(1)
-
     
     def scrape_single_film_data(self) -> tuple[dict, list]:
         """Scrapes all of the data of a singular film and returns the data. Assumes scraper is already on the film's page.
@@ -133,7 +133,7 @@ class Scraper:
 
         return data, imgs
 
-    def manage_saving_data(self, data: dict, imgs: list, friend_id: str, choices: tuple) -> None:
+    def manage_saving_data(self, data: dict, imgs: list, friend_id: str, choices: tuple, conn=None) -> None:
         """Performs the high-level operations for saving the film data by calling other functions depending on user choices.
 
         Args:
@@ -152,7 +152,7 @@ class Scraper:
 
         if choices[1] == "y":  # Upload the data to RDS.
             print("Uploading data to RDS.")
-            data_saving.upload_data_to_RDS(data)
+            data_saving.upload_data_to_RDS(conn, data)
 
     def run_scraper(self) -> None:
         """Performs the main execution loop of the webscraper.
@@ -163,6 +163,8 @@ class Scraper:
         choices = scraper.get_local_upload_choices(sys.argv)
         if choices[0] == "y":
             data_saving.create_folder('raw_data')
+        if choices[1] == "y":
+            conn = data_saving.connect_to_RDS_psy()
         scraper.decline_cookies(10)
 
         while True:
@@ -179,7 +181,7 @@ class Scraper:
                 data, imgs = scraper.scrape_single_film_data()
 
                 # Save the data locally, upload to RDS, do both, or do neither.
-                scraper.manage_saving_data(data, imgs, data['friend_id'], choices)
+                scraper.manage_saving_data(data, imgs, data['friend_id'], choices, conn)
 
                 print(data)
                 print("{} done.".format(data['friend_id']))
@@ -189,11 +191,14 @@ class Scraper:
                 scraper.driver.get(current_page)
 
             # If a next page exists, click it. Otherwise we are done and program can exit.
-            if film_details.return_element_if_exists('//span[@class="flipper next"]//a[@class="action"]') is None:
+            if film_details.return_element_if_exists(scraper.driver, '//span[@class="flipper next"]//a[@class="action"]') is None:
                 break
             else:
                 scraper.click_next_page()
 
+        # Close the psycopg2 connection and the selenium webdriver.
+        if conn is not None:
+            conn.close()
         scraper.driver.quit()
 
 
