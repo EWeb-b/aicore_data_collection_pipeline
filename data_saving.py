@@ -1,13 +1,12 @@
-
 import boto3
 import configparser
 import os
 import json
 import psycopg2
-from psycopg2 import sql
-from psycopg2.extensions import connection
 import requests
 from typing import Any
+from psycopg2 import sql
+from psycopg2.extensions import connection
 
 def connect_to_RDS_psy():
     config = configparser.ConfigParser()

@@ -1,10 +1,9 @@
-from datetime import datetime
 import re
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+import uuid
+from datetime import datetime
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-import uuid
 
 
 def return_element_if_exists(driver, xpath: str) -> (WebElement | None):

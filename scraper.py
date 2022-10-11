@@ -3,6 +3,8 @@ import data_saving
 import film_details
 
 # Other imports.
+import sys
+import time
 from psycopg2.extensions import connection
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -10,8 +12,6 @@ from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import sys
-import time
 from typing import Any
 from webdriver_manager.chrome import ChromeDriverManager
 
