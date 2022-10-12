@@ -68,8 +68,8 @@ def upload_data_to_RDS(conn: connection, data: dict) -> None:
         conn.commit()
         cur.close()        
 
-        actor_director_genre_upload(conn, 'actor', 'actor_name', 'actor_link', 'actor_id', data['starring'], film_uuid)
-        actor_director_genre_upload(conn, 'director', 'director_name', 'director_link', 'director_id', data['director'], film_uuid)
+        actor_director_genre_upload(conn, 'actor', 'actor_name', 'actor_link', 'actor_id', data['actors'], film_uuid)
+        actor_director_genre_upload(conn, 'director', 'director_name', 'director_link', 'director_id', data['directors'], film_uuid)
         actor_director_genre_upload(conn, 'genre', 'genre_name', 'genre_link', 'genre_id', data['genres'], film_uuid)
 
 def actor_director_genre_upload(conn: connection, group: str, group_name: str, group_link: str, group_id: str, value_list: list, film_uuid: str) -> None:

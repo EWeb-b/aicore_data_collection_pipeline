@@ -36,6 +36,13 @@ class Scraper:
             self.driver = webdriver.Chrome(service=s)
         self.driver.get(self.url)
 
+    def check_exists_by_xpath(self, xpath) -> bool:
+        try:
+            self.driver.find_element(By.XPATH, value=xpath)
+        except NoSuchElementException:
+            return False
+        return True
+
     def decline_cookies(self, delay: int) -> None:
         """Rejects the cookie window if it is present.
 
@@ -113,27 +120,16 @@ class Scraper:
             data: A dictionary of the film's data.
             imgs: A list of the image urls. 
         """
-        data = {'uuid': [], 'friend_id': [], 'title': [], 'metascore': [], 'release_date': [], 'starring': [],
-                'director': [], 'genres': [], 'rating': [], 'runtime': [], 'summary_img': []}
-
-        data['uuid'] = film_details.get_uuid()
-        data['friend_id'] = film_details.get_friend_id(self.driver)
-        data['title'] = film_details.get_film_title(self.driver)
-        data['metascore'] = film_details.get_metascore(self.driver)
-        data['release_date'] = film_details.get_release_date(self.driver)
-        data['starring'] = film_details.get_actors(self.driver)
-        data['director'] = film_details.get_directors(self.driver)
-        data['genres'] = film_details.get_genres(self.driver)
-        data['rating'] = film_details.get_rating(self.driver)
-        data['runtime'] = film_details.get_runtime(self.driver)
-        data['summary_img'] = film_details.get_summary_img(self.driver)
+        details = film_details.FilmDetails()
+        details.get_all_data(self.driver)
+        data = details.__dict__
 
         imgs = []
         imgs.append(data['summary_img'])
 
         return data, imgs
 
-    def manage_saving_data(self, data: dict, imgs: list, friend_id: str, choices: tuple, conn=None) -> None:
+    def manage_saving_data(self, data: dict, imgs: list, friend_id: str, choices: tuple, conn: connection | None) -> None:
         """Performs the high-level operations for saving the film data by calling other functions depending on user choices.
 
         Args:
@@ -161,10 +157,8 @@ class Scraper:
         """
         # Gets the user's choices on uploading/saving data locally.
         choices = scraper.get_local_upload_choices(sys.argv)
-        if choices[0] == "y":
-            data_saving.create_folder('raw_data')
-        if choices[1] == "y":
-            conn = data_saving.connect_to_RDS_psy()
+        if choices[0] == "y": data_saving.create_folder('raw_data')
+        conn = data_saving.connect_to_RDS_psy() if choices[1] == "y" else None
         scraper.decline_cookies(10)
 
         while True:
@@ -191,7 +185,7 @@ class Scraper:
                 scraper.driver.get(current_page)
 
             # If a next page exists, click it. Otherwise we are done and program can exit.
-            if film_details.return_element_if_exists(scraper.driver, '//span[@class="flipper next"]//a[@class="action"]') is None:
+            if not self.check_exists_by_xpath('//span[@class="flipper next"]//a[@class="action"]'):
                 break
             else:
                 scraper.click_next_page()
